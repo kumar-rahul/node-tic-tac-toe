@@ -112,26 +112,21 @@ var statusCalculation = function() {
     getAllUserMove().then(
       function(response) {
         var resp = response.response;
-        //   console.log("getAllUserMove | length:: ", resp.length);
-        //   console.log("getAllUserMove | response:: ", response);
-        //   console.log("getAllUserMove | response.response:: ", response.response);
-
+        var nextPlayerMove = resp[resp.length - 2].userid;
         for (var k = 0, len = resp.length; k < len; k++) {
           var pos = resp[k] && resp[k].position.split(",");
-          pos[0];
-          // console.log("pos[0] = ", pos[0]);
-          // console.log("pos[1] = ", pos[1]);
-          // console.log("data = ", resp[k].data);
+          //   pos[0]; // not required
           pos[0] = parseInt(pos[0]);
           pos[1] = parseInt(pos[1]);
           squares[pos[0]][pos[1]] = parseInt(resp[k].data);
-          // console.log("squares = ", squares[pos[0]][pos[1]]);
-          // console.log("squares 0,2= ", squares[0][2]);
         }
         //   printSquare(squares);
         gameBoard = squares;
-        resolve(calculateWinner(squares));
-        //   console.log("calculateWinner::", calculateWinner(squares));
+        var gameStatus = {
+          status: calculateWinner(squares),
+          user: nextPlayerMove
+        };
+        resolve(gameStatus);
       },
       function(response) {
         console.log(
@@ -144,14 +139,14 @@ var statusCalculation = function() {
   });
 };
 
-var printSquare = function(matrix) {
-  for (var i = 0; i < 3; i++) {
-    for (var j = 0; j < 3; j++) {
-      console.log(matrix[i][j] + " ");
-    }
-    console.log("||");
-  }
-};
+// var printSquare = function(matrix) {
+//   for (var i = 0; i < 3; i++) {
+//     for (var j = 0; j < 3; j++) {
+//       console.log(matrix[i][j] + " ");
+//     }
+//     console.log("||");
+//   }
+// };
 
 var getAvailablePlaces = function(matrix) {
   var unplayedPlaces = [];
@@ -169,7 +164,6 @@ var updateGameBoard = function(winner, gameId) {
   var date = new Date();
   var endedAt = date.getTime();
   var availablePlaces = getAvailablePlaces(gameBoard);
-  console.log("availablePlaces:: ", availablePlaces);
 
   return new Promise(function(resolve, reject) {
     connection.query(
@@ -184,18 +178,20 @@ var updateGameBoard = function(winner, gameId) {
         "'",
       function(error, results, fields) {
         if (error) {
-          console.log("Error | Game Board not updated");
-
-          //   res.send(
-          //     JSON.stringify({ status: 500, error: error, response: null })
-          //   );
-          //If there is error, we send the error in the error section with 500 status
+          result = {
+            status: 500,
+            error: null,
+            response: results
+          };
+          result = { status: 500, error: error, response: null };
+          reject(result);
         } else {
-          console.log("Success | Game Board updated");
-          //   res.send(
-          //     JSON.stringify({ status: 200, error: null, response: results })
-          //   );
-          //If there is no error, all is good and response is 200OK.
+          result = {
+            status: 200,
+            error: null,
+            response: results
+          };
+          resolve(result);
         }
       }
     );
@@ -228,43 +224,34 @@ var move = function(param) {
           };
 
           statusCalculation().then(
-            function(value) {
-              console.log("statusCalculation = ", value);
+            function(response) {
+              var value = response.status;
+              var nextPlayer = response.user;
+
               if (value === 1) {
-                console.log("statusCalculation if = ", value);
                 updateGameBoard("U1", param.gameid).then(
                   function(response) {
-                    console.log(
-                      "statusCalculation | updateGameBoard = ",
-                      response
-                    );
                     result.message = "U1 Win";
                     resolve(result);
                   },
-                  function(response) {
-                    console.log("error | updateGameBoard U1 failed", response);
-                    result = { status: 500, error: error, response: null };
+                  function(err) {
+                    result = { status: 500, error: error, response: err };
                     reject(result);
                   }
                 );
               } else if (value === -1) {
-                console.log("statusCalculation if = ", value);
                 updateGameBoard("U2", param.gameid).then(
                   function(response) {
-                    console.log(
-                      "statusCalculation | updateGameBoard = ",
-                      response
-                    );
                     result.message = "U2 Win";
                     resolve(result);
                   },
                   function(response) {
-                    console.log("error | updateGameBoard U1 failed", response);
                     result = { status: 500, error: error, response: null };
                     reject(result);
                   }
                 );
               } else {
+                result.message = nextPlayer + " will play";
                 resolve(result);
               }
             },
