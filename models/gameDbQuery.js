@@ -12,16 +12,19 @@ let createBoard = function(param) {
   let createdAt = date.getTime();
 
   let dbQUery =
-    "INSERT INTO `glapp`.`game` (`status`, `started`, `ended`, `user`, `winner`, `cells`, `gameid`) VALUES ('INPROGRESS', '" +
-    createdAt +
-    "', 'NA', '" +
-    param.users +
-    "', 'NA', '0,0|0,1|0,2|1,0|1,1|1,2|2,0|2,1|2,2', '" +
-    uuid +
-    "');";
+    "INSERT INTO glapp.game (status, started, ended, user, winner, cells, gameid) VALUES (?, ?, ?, ?, ?, ?, ?)";
+  let values = [
+    "INPROGRESS",
+    createdAt,
+    "NA",
+    param.users,
+    "NA",
+    "0,0|0,1|0,2|1,0|1,1|1,2|2,0|2,1|2,2",
+    uuid
+  ];
 
   return new Promise(function(resolve, reject) {
-    connection.query(dbQUery, function(error, results, fields) {
+    connection.query(dbQUery, values, function(error, results, fields) {
       if (error) {
         //If there is error, we send the error in the error section with 500 status
         result = { status: 500, error: error, response: null };

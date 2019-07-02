@@ -1,6 +1,5 @@
 const express = require("express");
 const router = express.Router();
-const gameService = require("../services/gameservice");
 const gameDbQuery = require("../models/gameDbQuery");
 
 router.post("/createGameBoard", function(req, res, next) {
