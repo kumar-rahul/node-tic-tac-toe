@@ -3,7 +3,7 @@ const Promise = require("bluebird");
 var gameService = require("../services/gameservice");
 
 let query = {};
-let gameBoard = null;
+// let gameBoard = null;
 
 let createBoard = function(param) {
   let result = {};
@@ -34,6 +34,8 @@ let createBoard = function(param) {
           error: null,
           response: results
         };
+        let matrix = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+        gameService.setGameBoard(matrix);
         resolve(result);
       }
     });
@@ -63,7 +65,8 @@ let getAllUserMove = function(gameid) {
 };
 
 let statusCalculation = function(gameid) {
-  let squares = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  // let squares = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+  let squares = gameService.getGameBoard();
   return new Promise(function(resolve, reject) {
     getAllUserMove(gameid)
       .then(function(response) {
@@ -77,7 +80,8 @@ let statusCalculation = function(gameid) {
           squares[pos[0]][pos[1]] = parseInt(resp[k].data);
         }
         //   printSquare(squares);
-        gameBoard = squares;
+        // gameBoard = squares;
+        gameService.setGameBoard(squares);
         let gameStatus = {
           status: gameService.calculateWinner(squares),
           user: nextPlayerMove
@@ -102,6 +106,7 @@ let statusCalculation = function(gameid) {
 let updateGameBoard = function(winner, gameId) {
   let date = new Date();
   let endedAt = date.getTime();
+  let gameBoard = gameService.getGameBoard();
   let availablePlaces = gameService.getAvailablePlaces(gameBoard);
   let gameStatus = "COMPLETED";
   if (availablePlaces.length === 0) {
@@ -140,56 +145,65 @@ let move = function(param) {
   let result = {};
 
   return new Promise(function(resolve, reject) {
-    connection.query(
-      "INSERT INTO usermove (gameid, userid, data, position) VALUES (?, ?, ?, ?)",
-      [param.gameid, param.userid, param.data, param.position],
-      function(error, results, fields) {
-        if (error) {
-          result = { status: 500, error: error, response: null };
-          reject(result);
-        } else {
-          result = {
-            status: 200,
-            error: null,
-            response: results
-          };
+    let validPos = gameService.validPosition(param.position);
+    if (!validPos) {
+      result = { status: 500, error: "Invalid Position", response: null };
+      reject(result);
+    } else {
+      connection.query(
+        "INSERT INTO usermove (gameid, userid, data, position) VALUES (?, ?, ?, ?)",
+        [param.gameid, param.userid, param.data, param.position],
+        function(error, results, fields) {
+          if (error) {
+            result = { status: 500, error: error, response: null };
+            reject(result);
+          } else {
+            result = {
+              status: 200,
+              error: null,
+              response: results
+            };
+            // game status calculation
+            statusCalculation(param.gameid)
+              .then(function(response) {
+                let value = response.status;
+                let nextPlayer = response.user;
 
-          statusCalculation(param.gameid)
-            .then(function(response) {
-              let value = response.status;
-              let nextPlayer = response.user;
-
-              if (value === 1) {
-                updateGameBoard("U1", param.gameid).then(function(response) {
-                  result.message = "U1 Win";
-                  resolve(result);
-                });
-              } else if (value === -1) {
-                updateGameBoard("U2", param.gameid).then(function(response) {
-                  result.message = "U2 Win";
-                  resolve(result);
-                });
-              } else {
-                let availablePlaces = gameService.getAvailablePlaces(gameBoard);
-                if (availablePlaces.length === 0) {
-                  updateGameBoard("U1|U2", param.gameid).then(function(resp) {
-                    result.message = "Draw";
+                if (value === 1) {
+                  updateGameBoard("U1", param.gameid).then(function(response) {
+                    result.message = "U1 Win";
+                    resolve(result);
+                  });
+                } else if (value === -1) {
+                  updateGameBoard("U2", param.gameid).then(function(response) {
+                    result.message = "U2 Win";
                     resolve(result);
                   });
                 } else {
-                  result.message = nextPlayer + " will play";
-                  resolve(result);
+                  let gameBoard = gameService.getGameBoard();
+                  let availablePlaces = gameService.getAvailablePlaces(
+                    gameBoard
+                  );
+                  if (availablePlaces.length === 0) {
+                    updateGameBoard("U1|U2", param.gameid).then(function(resp) {
+                      result.message = "Draw";
+                      resolve(result);
+                    });
+                  } else {
+                    result.message = nextPlayer + " will play";
+                    resolve(result);
+                  }
                 }
-              }
-            })
-            .catch(function(error) {
-              console.log("move | statusCalculation: ", error);
-              result = { status: 500, error: error, response: null };
-              reject(result);
-            });
+              })
+              .catch(function(error) {
+                console.log("move | statusCalculation: ", error);
+                result = { status: 500, error: error, response: null };
+                reject(result);
+              });
+          }
         }
-      }
-    );
+      );
+    }
   });
 };
 

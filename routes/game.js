@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const gameDbQuery = require("../models/gameDbQuery");
+var gameService = require("../services/gameservice");
 
 router.post("/createGameBoard", function(req, res, next) {
   gameDbQuery
@@ -15,6 +16,8 @@ router.post("/createGameBoard", function(req, res, next) {
 });
 
 router.post("/usermove", function(req, res, next) {
+  //   let validPos = gameService.validPosition(req.body.position);
+
   gameDbQuery
     .checkGameStatus(req.body)
     .then(gameDbQuery.move)

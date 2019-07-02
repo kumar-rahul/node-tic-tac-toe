@@ -1,6 +1,8 @@
 // var createBoard = function() {};
 
 let gameservice = {};
+let gameBoard = {};
+
 const add = (a, b) => a + b;
 
 let sum = function(array) {
@@ -69,8 +71,31 @@ let getAvailablePlaces = function(matrix) {
 //   }
 // };
 
+let setGameBoard = function(board) {
+  gameBoard.currState = board;
+};
+
+let getGameBoard = function() {
+  return gameBoard.currState;
+};
+
+let validPosition = function(position) {
+  let gameBoard = getGameBoard();
+  let availablePlaces = getAvailablePlaces(gameBoard);
+  console.log("validPosition | availablePlaces = ", availablePlaces.length);
+  for (let i = 0, len = availablePlaces.length; i < len; i++) {
+    if (availablePlaces[i] === position) {
+      return true;
+    }
+  }
+  return false;
+};
+
 gameservice = {
   calculateWinner,
-  getAvailablePlaces
+  getAvailablePlaces,
+  setGameBoard,
+  getGameBoard,
+  validPosition
 };
 module.exports = gameservice;
