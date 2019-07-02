@@ -52,7 +52,8 @@ let getAvailablePlaces = function(matrix) {
   for (let i = 0; i < 3; i++) {
     for (let j = 0; j < 3; j++) {
       if (matrix[i][j] === 0) {
-        unplayedPlaces.push(i.toString(), j.toString());
+        let index = i.toString() + "," + j.toString();
+        unplayedPlaces.push(index);
       }
     }
   }
