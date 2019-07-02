@@ -26,11 +26,9 @@ let createBoard = function(param) {
   return new Promise(function(resolve, reject) {
     connection.query(dbQUery, values, function(error, results, fields) {
       if (error) {
-        //If there is error, we send the error in the error section with 500 status
         result = { status: 500, error: error, response: null };
         reject(result);
       } else {
-        //If there is no error, all is good and response is 200OK.
         result = {
           status: 200,
           error: null,
@@ -42,35 +40,36 @@ let createBoard = function(param) {
   });
 };
 
-let getAllUserMove = function getAllUserMove() {
+let getAllUserMove = function(gameid) {
   return new Promise(function(resolve, reject) {
-    connection.query("SELECT * FROM glapp.usermove;", function(
-      error,
-      results,
-      fields
-    ) {
-      if (error) {
-        result = { status: 500, error: error, response: null };
-        reject(result);
-      } else {
-        result = {
-          status: 200,
-          error: null,
-          response: results
-        };
-        resolve(result);
+    connection.query(
+      "SELECT * FROM glapp.usermove where gameid=?",
+      [gameid],
+      function(error, results, fields) {
+        if (error) {
+          result = { status: 500, error: error, response: null };
+          reject(result);
+        } else {
+          result = {
+            status: 200,
+            error: null,
+            response: results
+          };
+          resolve(result);
+        }
       }
-    });
+    );
   });
 };
 
-let statusCalculation = function() {
+let statusCalculation = function(gameid) {
   let squares = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
   return new Promise(function(resolve, reject) {
-    getAllUserMove().then(
-      function(response) {
+    getAllUserMove(gameid)
+      .then(function(response) {
         let resp = response.response;
-        let nextPlayerMove = resp[resp.length - 2].userid;
+        let nextPlayerMove =
+          resp.length < 2 ? "Opponent" : resp[resp.length - 2].userid;
         for (let k = 0, len = resp.length; k < len; k++) {
           let pos = resp[k] && resp[k].position.split(",");
           pos[0] = parseInt(pos[0]);
@@ -84,15 +83,19 @@ let statusCalculation = function() {
           user: nextPlayerMove
         };
         resolve(gameStatus);
-      },
-      function(response) {
-        console.log(
-          "statusCalculation| getAllUserMove query failed !!",
-          response
-        );
+        // },
+        // function(response) {
+        //   console.log(
+        //     "statusCalculation| getAllUserMove query failed !!",
+        //     response
+        //   );
+        //   reject(-2);
+        // }
+      })
+      .catch(function(error) {
+        console.log("statusCalculation| getAllUserMove: ", error);
         reject(-2);
-      }
-    );
+      });
   });
 };
 
@@ -100,11 +103,17 @@ let updateGameBoard = function(winner, gameId) {
   let date = new Date();
   let endedAt = date.getTime();
   let availablePlaces = gameService.getAvailablePlaces(gameBoard);
-
+  let gameStatus = "COMPLETED";
+  if (availablePlaces.length === 0) {
+    gameStatus = "DRAW";
+    availablePlaces = "NA";
+  } else {
+    availablePlaces = availablePlaces.join("|");
+  }
   return new Promise(function(resolve, reject) {
     connection.query(
       "UPDATE glapp.game SET status=?, ended=?, winner=?, cells=? WHERE gameid=?",
-      ["COMPLETED", endedAt, winner, availablePlaces, gameId],
+      [gameStatus, endedAt, winner, availablePlaces, gameId],
       function(error, results, fields) {
         if (error) {
           result = {
@@ -145,42 +154,39 @@ let move = function(param) {
             response: results
           };
 
-          statusCalculation().then(
-            function(response) {
+          statusCalculation(param.gameid)
+            .then(function(response) {
               let value = response.status;
               let nextPlayer = response.user;
 
               if (value === 1) {
-                updateGameBoard("U1", param.gameid).then(
-                  function(response) {
-                    result.message = "U1 Win";
-                    resolve(result);
-                  },
-                  function(err) {
-                    result = { status: 500, error: error, response: err };
-                    reject(result);
-                  }
-                );
+                updateGameBoard("U1", param.gameid).then(function(response) {
+                  result.message = "U1 Win";
+                  resolve(result);
+                });
               } else if (value === -1) {
-                updateGameBoard("U2", param.gameid).then(
-                  function(response) {
-                    result.message = "U2 Win";
-                    resolve(result);
-                  },
-                  function(response) {
-                    result = { status: 500, error: error, response: null };
-                    reject(result);
-                  }
-                );
+                updateGameBoard("U2", param.gameid).then(function(response) {
+                  result.message = "U2 Win";
+                  resolve(result);
+                });
               } else {
-                result.message = nextPlayer + " will play";
-                resolve(result);
+                let availablePlaces = gameService.getAvailablePlaces(gameBoard);
+                if (availablePlaces.length === 0) {
+                  updateGameBoard("U1|U2", param.gameid).then(function(resp) {
+                    result.message = "Draw";
+                    resolve(result);
+                  });
+                } else {
+                  result.message = nextPlayer + " will play";
+                  resolve(result);
+                }
               }
-            },
-            function(response) {
-              console.log("statusCalculation | error", response);
-            }
-          );
+            })
+            .catch(function(error) {
+              console.log("move | statusCalculation: ", error);
+              result = { status: 500, error: error, response: null };
+              reject(result);
+            });
         }
       }
     );
@@ -216,9 +222,6 @@ let checkGameStatus = function(param) {
             reject(result);
           }
         }
-      },
-      function(response) {
-        console.log("checkGameStatus | error", response);
       }
     );
   });

@@ -57,7 +57,7 @@ let getAvailablePlaces = function(matrix) {
       }
     }
   }
-  return unplayedPlaces.join("|");
+  return unplayedPlaces;
 };
 
 // let printSquare = function(matrix) {

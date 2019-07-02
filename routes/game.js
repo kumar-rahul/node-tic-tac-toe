@@ -23,7 +23,7 @@ router.post("/usermove", function(req, res, next) {
     })
     .catch(function(error) {
       console.log("usermove | catch error", error);
-      //   res.send(error);
+      res.send(error);
     });
 });
 
