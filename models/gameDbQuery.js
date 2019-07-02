@@ -100,15 +100,8 @@ let updateGameBoard = function(winner, gameId) {
 
   return new Promise(function(resolve, reject) {
     connection.query(
-      "UPDATE `glapp`.`game` SET `status`='COMPLETED', `ended`='" +
-        endedAt +
-        "', `winner`='" +
-        winner +
-        "', `cells`='" +
-        availablePlaces +
-        "' WHERE `gameid`='" +
-        gameId +
-        "'",
+      "UPDATE glapp.game SET status=?, ended=?, winner=?, cells=? WHERE gameid=?",
+      ["COMPLETED", endedAt, winner, availablePlaces, gameId],
       function(error, results, fields) {
         if (error) {
           result = {
