@@ -1,16 +1,17 @@
-var commonService = require("../services/common");
-var Promise = require("bluebird");
+const commonService = require("../services/common");
+const Promise = require("bluebird");
+var gameService = require("../services/gameservice");
 
-var query = {};
-var gameBoard = null;
+let query = {};
+let gameBoard = null;
 
-var createBoard = function(param) {
-  var result = {};
-  var uuid = commonService.generateUUID();
-  var date = new Date();
-  var createdAt = date.getTime();
+let createBoard = function(param) {
+  let result = {};
+  let uuid = commonService.generateUUID();
+  let date = new Date();
+  let createdAt = date.getTime();
 
-  var dbQUery =
+  let dbQUery =
     "INSERT INTO `glapp`.`game` (`status`, `started`, `ended`, `user`, `winner`, `cells`, `gameid`) VALUES ('INPROGRESS', '" +
     createdAt +
     "', 'NA', '" +
@@ -38,7 +39,7 @@ var createBoard = function(param) {
   });
 };
 
-var getAllUserMove = function getAllUserMove() {
+let getAllUserMove = function getAllUserMove() {
   return new Promise(function(resolve, reject) {
     connection.query("SELECT * FROM glapp.usermove;", function(
       error,
@@ -60,70 +61,23 @@ var getAllUserMove = function getAllUserMove() {
   });
 };
 
-const add = (a, b) => a + b;
-
-var sum = function(array) {
-  return array.reduce(add);
-};
-
-var calculateWinner = function(squares) {
-  // check for horizontal wins along rows and diagonals
-  let winner = calculateWinnerInner(squares);
-  if (winner !== 0) return winner;
-  // check for possible vertical wins as well
-  const stranspose = squares.map((col, i) => squares.map(row => row[i]));
-  return calculateWinnerInner(stranspose);
-};
-
-var calculateWinnerInner = function(squares) {
-  for (let r = 0; r < squares.length; r++) {
-    if (squares[r].length === sum(squares[r])) {
-      return 1;
-    }
-    if (squares[r].length === -sum(squares[r])) {
-      return -1;
-    }
-  }
-  const diagonal = squares.map((row, r) => squares[r][r]);
-
-  if (squares[0].length === sum(diagonal)) {
-    return 1;
-  }
-  if (squares[0].length === -sum(diagonal)) {
-    return -1;
-  }
-
-  const len = squares.length;
-  const crossdiagonal = squares.map((row, r) => squares[r][len - r - 1]);
-
-  if (squares[0].length === sum(crossdiagonal)) {
-    return 1;
-  }
-  if (squares[0].length === -sum(crossdiagonal)) {
-    return -1;
-  }
-
-  return 0;
-};
-
-var statusCalculation = function() {
-  var squares = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+let statusCalculation = function() {
+  let squares = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
   return new Promise(function(resolve, reject) {
     getAllUserMove().then(
       function(response) {
-        var resp = response.response;
-        var nextPlayerMove = resp[resp.length - 2].userid;
-        for (var k = 0, len = resp.length; k < len; k++) {
-          var pos = resp[k] && resp[k].position.split(",");
-          //   pos[0]; // not required
+        let resp = response.response;
+        let nextPlayerMove = resp[resp.length - 2].userid;
+        for (let k = 0, len = resp.length; k < len; k++) {
+          let pos = resp[k] && resp[k].position.split(",");
           pos[0] = parseInt(pos[0]);
           pos[1] = parseInt(pos[1]);
           squares[pos[0]][pos[1]] = parseInt(resp[k].data);
         }
         //   printSquare(squares);
         gameBoard = squares;
-        var gameStatus = {
-          status: calculateWinner(squares),
+        let gameStatus = {
+          status: gameService.calculateWinner(squares),
           user: nextPlayerMove
         };
         resolve(gameStatus);
@@ -139,31 +93,10 @@ var statusCalculation = function() {
   });
 };
 
-// var printSquare = function(matrix) {
-//   for (var i = 0; i < 3; i++) {
-//     for (var j = 0; j < 3; j++) {
-//       console.log(matrix[i][j] + " ");
-//     }
-//     console.log("||");
-//   }
-// };
-
-var getAvailablePlaces = function(matrix) {
-  var unplayedPlaces = [];
-  for (var i = 0; i < 3; i++) {
-    for (var j = 0; j < 3; j++) {
-      if (matrix[i][j] === 0) {
-        unplayedPlaces.push(i.toString(), j.toString());
-      }
-    }
-  }
-  return unplayedPlaces.join("|");
-};
-
-var updateGameBoard = function(winner, gameId) {
-  var date = new Date();
-  var endedAt = date.getTime();
-  var availablePlaces = getAvailablePlaces(gameBoard);
+let updateGameBoard = function(winner, gameId) {
+  let date = new Date();
+  let endedAt = date.getTime();
+  let availablePlaces = gameService.getAvailablePlaces(gameBoard);
 
   return new Promise(function(resolve, reject) {
     connection.query(
@@ -198,20 +131,13 @@ var updateGameBoard = function(winner, gameId) {
   });
 };
 
-var move = function(param) {
-  var result = {};
+let move = function(param) {
+  let result = {};
 
   return new Promise(function(resolve, reject) {
     connection.query(
-      "INSERT INTO `glapp`.`usermove` (`gameid`, `userid`, `data`, `position`) VALUES ('" +
-        param.gameid +
-        "', '" +
-        param.userid +
-        "', '" +
-        param.data +
-        "', '" +
-        param.position +
-        "')",
+      "INSERT INTO usermove (gameid, userid, data, position) VALUES (?, ?, ?, ?)",
+      [param.gameid, param.userid, param.data, param.position],
       function(error, results, fields) {
         if (error) {
           result = { status: 500, error: error, response: null };
@@ -225,8 +151,8 @@ var move = function(param) {
 
           statusCalculation().then(
             function(response) {
-              var value = response.status;
-              var nextPlayer = response.user;
+              let value = response.status;
+              let nextPlayer = response.user;
 
               if (value === 1) {
                 updateGameBoard("U1", param.gameid).then(
@@ -265,10 +191,47 @@ var move = function(param) {
   });
 };
 
+let checkGameStatus = function(param) {
+  let result = {};
+
+  return new Promise(function(resolve, reject) {
+    connection.query(
+      "SELECT * FROM glapp.game where gameid=?",
+      [param.gameid],
+      function(error, results, fields) {
+        if (error) {
+          result = { status: 500, error: error, response: null };
+          reject(result);
+        } else {
+          var response = results[0];
+          if (response.status === "INPROGRESS") {
+            resolve(param);
+          } else if (
+            response.status === "COMPLETED" ||
+            response.status === "DRAW" ||
+            response.status === "TIMEOUT"
+          ) {
+            result = {
+              status: 200,
+              error: null,
+              response: response,
+              message: "Game status " + response.status
+            };
+            reject(result);
+          }
+        }
+      },
+      function(response) {
+        console.log("checkGameStatus | error", response);
+      }
+    );
+  });
+};
+
 query = {
   createBoard,
   move,
-  getAllUserMove
+  checkGameStatus
 };
 
 module.exports = query;
